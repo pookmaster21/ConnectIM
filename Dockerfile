@@ -6,9 +6,8 @@ COPY go.mod ./
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux
 
-COPY *.go ./
+COPY ./ ./
 
-RUN go build -o ./ConnectIM-Server
+RUN go build -o ./bin/ConnectIM-Server
 
-
-CMD ["./ConnectIM-Server"]
+CMD ["./bin/ConnectIM-Server"]
