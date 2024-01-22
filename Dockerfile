@@ -1,13 +1,13 @@
 FROM golang:latest
 
 WORKDIR /app
-COPY go.mod ./
+COPY go.mod go.sum ./
 
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux
 
 COPY ./ ./
 
-RUN go build -o ./bin/ConnectIM-Server
+RUN apt install make
 
-CMD ["./bin/ConnectIM-Server"]
+CMD ["make", "run"]
