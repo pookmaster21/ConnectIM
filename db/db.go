@@ -32,6 +32,10 @@ func Init_db(ctx context.Context, uri string, logger *Logger) {
 	}
 
 	DB.coll = DB.client.Database("ConnectIM").Collection("Users")
+	_, err = DB.coll.Aggregate(ctx, bson.A{})
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
 	logger.Info("Inited the DB")
 }
 
@@ -54,6 +58,7 @@ func (d *db) Find_user(ctx context.Context, fields []string, info []any) *User {
 	for i := range fields {
 		result[fields[i]] = info[i]
 	}
+
 	err := d.coll.FindOne(ctx, result).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return nil
