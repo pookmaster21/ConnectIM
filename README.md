@@ -1,1 +1,1 @@
-# ConnectIM-Server
+# ConnectIM
