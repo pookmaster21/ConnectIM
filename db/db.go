@@ -29,12 +29,14 @@ func Init_db(ctx context.Context, uri string, logger *Logger) {
 	)
 	if err != nil {
 		logger.Fatal(err.Error())
+		return
 	}
 
 	DB.coll = DB.client.Database("ConnectIM").Collection("Users")
 	_, err = DB.coll.Aggregate(ctx, bson.A{})
 	if err != nil {
 		logger.Fatal(err.Error())
+		return
 	}
 	logger.Info("Inited the DB")
 }
