@@ -1,10 +1,9 @@
 package types
 
-type Prefered uint8
+type Prefered int
 
 const (
-	TELEGRAM Prefered = iota
-	WHATSAPP
+	TELEGRAM Prefered = 1 << iota
 	DISCORD
 )
 

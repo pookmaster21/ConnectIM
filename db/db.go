@@ -14,13 +14,15 @@ import (
 type db struct {
 	coll   *mongo.Collection
 	client *mongo.Client
-	logger *Logger
 }
 
-var DB db
+var (
+	DB     db
+	logger *Logger
+)
 
-func Init_db(ctx context.Context, uri string, logger *Logger) {
-	DB.logger = logger
+func InitDB(ctx context.Context, uri string) {
+	logger = NewLogger()
 
 	var err error
 	DB.client, err = mongo.Connect(
@@ -28,34 +30,35 @@ func Init_db(ctx context.Context, uri string, logger *Logger) {
 		options.Client().ApplyURI(uri),
 	)
 	if err != nil {
-		logger.Fatal(err.Error())
+		logger.Error(err.Error())
 		return
 	}
 
 	DB.coll = DB.client.Database("ConnectIM").Collection("Users")
 	_, err = DB.coll.Aggregate(ctx, bson.A{})
 	if err != nil {
-		logger.Fatal(err.Error())
+		logger.Error(err.Error())
 		return
 	}
 	logger.Info("Inited the DB")
 }
 
-func (d *db) Insert_user(ctx context.Context, user *User) {
+func (d *db) InsertUser(ctx context.Context, user *User) {
 	_, err := d.coll.InsertOne(ctx, bson.M{
 		"username": user.Username,
 		"password": user.Password,
 		"whatsapp": user.Whatsapp,
 		"telegram": user.Telegram,
 		"discord":  user.Discord,
-		"prefred":  user.Prefered,
+		"prefered": user.Prefered,
 	})
 	if err != nil {
-		d.logger.Fatal(err.Error())
+		logger.Error(err.Error())
+		return
 	}
 }
 
-func (d *db) Find_user(ctx context.Context, fields []string, info []any) *User {
+func (d *db) FindUser(ctx context.Context, fields []string, info []any) *User {
 	result := bson.M{}
 	for i := range fields {
 		result[fields[i]] = info[i]
@@ -66,18 +69,21 @@ func (d *db) Find_user(ctx context.Context, fields []string, info []any) *User {
 		return nil
 	}
 	if err != nil {
-		d.logger.Fatal(err.Error())
+		logger.Error(err.Error())
+		return nil
 	}
 
 	jsondata, err := json.Marshal(result)
 	if err != nil {
-		d.logger.Fatal(err.Error())
+		logger.Error(err.Error())
+		return nil
 	}
 
 	var user User
 	err = json.Unmarshal(jsondata, &user)
 	if err != nil {
-		d.logger.Fatal(err.Error())
+		logger.Error(err.Error())
+		return nil
 	}
 	return &user
 }
@@ -85,9 +91,22 @@ func (d *db) Find_user(ctx context.Context, fields []string, info []any) *User {
 func (d *db) Close(ctx context.Context) {
 	err := d.client.Disconnect(ctx)
 	if err != nil {
-		d.logger.Error(err.Error())
+		logger.Error(err.Error())
 		return
 	}
 
-	d.logger.Info("Closed the DB")
+	logger.Info("Closed the DB")
+}
+
+func (d *db) DeleteUser(ctx context.Context, fields []string, info []any) {
+	result := bson.M{}
+	for i := range fields {
+		result[fields[i]] = info[i]
+	}
+
+	_, err := d.coll.DeleteOne(ctx, result)
+	if err != nil {
+		logger.Error(err.Error())
+		return
+	}
 }

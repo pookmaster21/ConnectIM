@@ -12,11 +12,18 @@ type Logger struct {
 	errorLogger   log.Logger
 }
 
-func (l *Logger) Init() {
-	l.infoLogger = *log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime)
-	l.debugLogger = *log.New(os.Stdout, "[DEBUG] ", log.Ldate|log.Ltime)
-	l.warningLogger = *log.New(os.Stdout, "[WARN] ", log.Ldate|log.Ltime)
-	l.errorLogger = *log.New(os.Stdout, "[Error] ", log.Ldate|log.Ltime)
+var logger *Logger
+
+func NewLogger() *Logger {
+	if logger == nil {
+		logger = new(Logger)
+		logger.infoLogger = *log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime)
+		logger.debugLogger = *log.New(os.Stdout, "[DEBUG] ", log.Ldate|log.Ltime)
+		logger.warningLogger = *log.New(os.Stdout, "[WARN] ", log.Ldate|log.Ltime)
+		logger.errorLogger = *log.New(os.Stdout, "[ERROR] ", log.Ldate|log.Ltime)
+	}
+
+	return logger
 }
 
 func (l *Logger) Info(format string, v ...any) {
@@ -33,8 +40,4 @@ func (l *Logger) Warn(format string, v ...any) {
 
 func (l *Logger) Error(format string, v ...any) {
 	l.errorLogger.Printf(format, v...)
-}
-
-func (l *Logger) Fatal(format string, v ...any) {
-	l.errorLogger.Fatalf(format, v...)
 }

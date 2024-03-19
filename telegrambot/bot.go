@@ -15,18 +15,24 @@ import (
 
 var commands = [3]string{"/start", "/help", "<username>:<message>"}
 
-var bot *tgbotapi.BotAPI
+var (
+	bot    *tgbotapi.BotAPI
+	logger *Logger
+)
 
-func RunTelegramBot(
+func Run(
 	ctx context.Context,
-	logger *Logger,
 	wg *sync.WaitGroup,
-	recieveMsgChan *chan Message,
-	sendingMsgChan *chan Message,
+	recieveMsgChan *chan *Message,
+	sendingMsgChan *chan *Message,
 	TOKEN string,
 ) {
-	defer logger.Info("Closed the Telegram bot")
-	defer wg.Done()
+	logger = NewLogger()
+
+	defer func() {
+		logger.Info("Closed the Telegram bot")
+		wg.Done()
+	}()
 
 	err := initBot(TOKEN)
 	if err != nil {
@@ -34,19 +40,20 @@ func RunTelegramBot(
 		return
 	}
 
-	logger.Info("Authorized on account %s", bot.Self.UserName)
+	logger.Info("Telegram bot connected: %s", bot.Self.UserName)
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates := bot.GetUpdatesChan(u)
 
-	go SendMessages(ctx, wg, logger, recieveMsgChan)
+	wg.Add(1)
+	go SendMessages(ctx, wg, recieveMsgChan)
 
-	for update := range updates {
+	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case update := <-updates:
 			msg := handleUpdates(ctx, &update, sendingMsgChan)
 			if msg.Text == "" {
 				continue
@@ -75,7 +82,7 @@ func initBot(TOKEN string) error {
 
 func handleUpdates(ctx context.Context,
 	update *tgbotapi.Update,
-	msgChan *chan Message,
+	msgChan *chan *Message,
 ) (msg tgbotapi.MessageConfig) {
 	// Create a new MessageConfig. We don't have text yet,
 	// so we leave it empty.
@@ -104,7 +111,7 @@ func handleUpdates(ctx context.Context,
 
 	args := strings.Split(update.Message.Text, ":")
 	if len(args) >= 2 {
-		userFrom := db.DB.Find_user(
+		userFrom := db.DB.FindUser(
 			ctx,
 			[]string{"telegram"},
 			[]any{fmt.Sprint(update.FromChat().ID)},
@@ -114,16 +121,16 @@ func handleUpdates(ctx context.Context,
 			return
 		}
 
-		userTo := db.DB.Find_user(ctx, []string{"username"}, []any{args[0]})
-		if userTo != nil {
+		userTo := db.DB.FindUser(ctx, []string{"username"}, []any{args[0]})
+		if userTo == nil {
 			msg.Text = "There is no such user " + args[0]
 			return
 		}
 
-		*msgChan <- Message{
+		*msgChan <- &Message{
 			Msg:  strings.Join(args[1:], ":"),
-			From: userFrom.Username,
-			To:   userTo.Username,
+			From: userFrom,
+			To:   userTo,
 		}
 	} else {
 		msg.Text = "You need to specify 2 args: <user>:<message>"
@@ -132,21 +139,24 @@ func handleUpdates(ctx context.Context,
 	return
 }
 
-func SendMessages(ctx context.Context, wg *sync.WaitGroup, logger *Logger, msgChan *chan Message) {
-	defer wg.Done()
+func SendMessages(ctx context.Context, wg *sync.WaitGroup, msgChan *chan *Message) {
+	defer func() {
+		logger.Info("Closed telegram bot messages reciever")
+		wg.Done()
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-*msgChan:
-			id, err := strconv.ParseInt(msg.To, 10, 64)
+			id, err := strconv.ParseInt(msg.To.Telegram, 10, 64)
 			if err != nil {
-				logger.Fatal(err.Error())
+				logger.Error(err.Error())
 			}
 
-			_, err = bot.Send(tgbotapi.NewMessage(id, msg.From+":"+msg.Msg))
+			_, err = bot.Send(tgbotapi.NewMessage(id, msg.From.Username+":"+msg.Msg))
 			if err != nil {
-				logger.Fatal(err.Error())
+				logger.Error(err.Error())
 			}
 		}
 	}

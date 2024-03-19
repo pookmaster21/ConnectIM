@@ -1,7 +1,7 @@
 package types
 
 type Message struct {
-	From string
-	Msg  string `json:"msg"`
-	To   string
+	From *User
+	Msg  string
+	To   *User
 }
